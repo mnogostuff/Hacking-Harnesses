@@ -1,0 +1,46 @@
+#!/bin/zsh
+export TMRUN_DIR=`pwd`
+
+function set_if_unset() {
+    if [[ -z $1 ]]; then
+       $ret = $2
+    else
+        $ret = $1
+    fi
+}
+
+function tmrun_send() {
+    tmux set-buffer $1"\n"
+    tmux paste-buffer
+}
+
+function tmrun_sh() {
+    cmd = $1
+    remote_shell = set_if_unset $2 "sh"
+           
+    cmd_as_b64 = `echo $1 | base64 -w0`
+    remote_decode = "echo $cmd_as_bash | base64 -d | $remote_shell"
+    tmrun_send($remote_decode)
+}
+
+function tmrun_sh_file() {
+    filename = $1
+    remote_shell = set_if_unset $2 "sh"
+    tmrun_sh("`cat $filename`", $remote_shell)
+}
+
+# NOTE: Requires pty
+function tmrun_py_file() {
+    filename = $1
+    #compressed = `openssl zlib -e -in $filename | base64 -w0`
+    tmrun_send("\npython\n")
+    tmrun_send("import base64; import zlib; s=zlib.decompress(base64.b64decode($buffer)); ")
+}
+
+
+function tmrun_put() {
+    filename = $1
+    destination = set_if_unset $2 "upload"
+    data = `cat $filename | gzip | base64 -w0`
+    tmrun_sh "echo $data | base64 -d | gunzip > $destination"
+}
